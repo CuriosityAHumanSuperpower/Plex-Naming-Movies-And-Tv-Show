@@ -8,14 +8,14 @@ PLEX.TV MOVIES & TV SHOW FORMAT
 ////////////////////////////////////////////////////////////////////////////////////////////
 
 //IMPORTS
-const themoviedb = require("./middlewares/themoviedb")
-const sleep = require("./middlewares/sleep")
-const fs = require('fs')
-const glob = require("glob")
+import themoviedb from "./middlewares/themoviedb";
+import sleep from "./middlewares/sleep";
+import { rename, existsSync, mkdirSync } from 'fs';
+import { sync } from "glob";
 
 //DOTENV
-const dotenv = require('dotenv');
-dotenv.config({path : './config.env'});
+import { config as _config } from 'dotenv';
+_config({path : './config.env'});
 
 //CONST
 const EXTENSIONS = [ 'avi', 'mkv', 'mp4', 'flv', 'MKV' ]
@@ -72,7 +72,7 @@ const getfileNameData = ( path ) => {
 
 function getfiles ( root = "./" ) {
 	
-	const files = glob.sync(root + '/**/*')
+	const files = sync(root + '/**/*')
 
 	return files
 
@@ -80,7 +80,7 @@ function getfiles ( root = "./" ) {
 
 function getFolders ( root = "./" ) {
 	
-	const files = glob.sync(root + '/**/*')
+	const files = sync(root + '/**/*')
 
 	return files.filter(element => element.split(".").length === 1)
 
@@ -137,7 +137,7 @@ async function setPlexPathFromFolder( _root = "./"){
 			//CHANGE FILE PATH 
 			const newPath = `${root}/${_path.fileName}.${ext}`
 			console.log(newPath)
-			fs.rename(file, newPath, () => {console.log(newPath, " renamed")})
+			rename(file, newPath, () => {console.log(newPath, " renamed")})
 		}
 	}
 }
@@ -169,7 +169,7 @@ async function setPlexTVShowsFolder( _root = "./" ){
 			oldPath = `${_root}/${fileFolder}/${folder.split("/").at(-1)}`
 		}
 		console.log("> FOLDER : ", {oldPath, newPath})
-		fs.rename(oldPath, newPath, () => {console.log(newPath, " renamed")})
+		rename(oldPath, newPath, () => {console.log(newPath, " renamed")})
 	}
 }
 
@@ -205,7 +205,7 @@ async function setPlexMoviesFiles ( _root = "./"){
 		const newPath = `${_root}/${newFileName}.${ext}`
 
 		console.log( {oldPath : file, newPath} )
-		fs.rename(file, newPath, () => {console.log(newPath, " renamed")})
+		rename(file, newPath, () => {console.log(newPath, " renamed")})
 
 	}
 
@@ -223,8 +223,8 @@ async function setPlexMoviesFolders ( _root = "./"){
 		const fileName = file.split("/").at(-1)
 		const folderRoot = `${_root}/${fileName.split(".")[0]}`
 	
-		if (!fs.existsSync(folderRoot)){
-		    fs.mkdirSync(folderRoot);
+		if (!existsSync(folderRoot)){
+		    mkdirSync(folderRoot);
 
 		} else {
 			const oldPath = file
@@ -283,15 +283,15 @@ async function setNameFromFolder ( config, _input = "./_input", _output = "./_ou
 				const newPath = `${_output}/${newName}/Season ${season}/${newName} - s${season}e${episode}.${ext}`
 
 				//CREATE FOLDERS				
-				if (!fs.existsSync(`${_output}/${newName}`)){
-					fs.mkdirSync(`${_output}/${newName}`);
+				if (!existsSync(`${_output}/${newName}`)){
+					mkdirSync(`${_output}/${newName}`);
 				}				
-				if (!fs.existsSync(`${_output}/${newName}/Season ${season}/`)){
-					fs.mkdirSync(`${_output}/${newName}/Season ${season}/`);
+				if (!existsSync(`${_output}/${newName}/Season ${season}/`)){
+					mkdirSync(`${_output}/${newName}/Season ${season}/`);
 				}
 
 				//RENAME
-				fs.rename(file, newPath,  (err) => {
+				rename(file, newPath,  (err) => {
 					if (err) throw err;
 					console.log(file, ' : Rename complete!');
 				})
