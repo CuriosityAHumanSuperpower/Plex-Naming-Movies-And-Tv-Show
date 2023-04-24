@@ -18,8 +18,6 @@ const dotenv = require('dotenv');
 dotenv.config({path : './config.env'})
 
 //CONST
-const EXTENSIONS = [ 'avi', 'mkv', 'mp4', 'flv', 'MKV' ]
-
 const DEFAULT_TV_SHOW_REGEX = {
 	SEASON_AND_EPISODE : /[Ss](?<season>\d{1,2})[Ee](?<episode>\d{1,2})/gm,
 	TITLE : /(?<title>[a-zA-Z\. ]{0,20})[Ss]\d{1,2}[Ee]\d{1,2}/gm,
@@ -220,10 +218,9 @@ async function setToPlexTVshowOrganization (
 	}
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////////////////
 //MAIN
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-console.log( getTvShowPattensAndPath() )
-//setToPlexTVshowOrganization()
+//console.log( getTvShowPattensAndPath() )
+setToPlexTVshowOrganization()
