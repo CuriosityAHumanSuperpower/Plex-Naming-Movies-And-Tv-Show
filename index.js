@@ -8,71 +8,50 @@ PLEX.TV MOVIES & TV SHOW FORMAT
 ////////////////////////////////////////////////////////////////////////////////////////////
 
 //IMPORTS
-import themoviedb from "./middlewares/themoviedb";
-import sleep from "./middlewares/sleep";
-import { rename, existsSync, mkdirSync } from 'fs';
-import { sync } from "glob";
+const themoviedb = require("./middlewares/themoviedb")
+const sleep = require("./middlewares/sleep")
+const fs = require('fs')
+const glob = require("glob")
 
 //DOTENV
-import { config as _config } from 'dotenv';
-_config({path : './config.env'});
+const dotenv = require('dotenv');
+dotenv.config({path : './config.env'})
 
 //CONST
 const EXTENSIONS = [ 'avi', 'mkv', 'mp4', 'flv', 'MKV' ]
+
+const DEFAULT_TV_SHOW_REGEX = {
+	SEASON_AND_EPISODE : /[Ss](?<season>\d{1,2})[Ee](?<episode>\d{1,2})/gm,
+	TITLE : /(?<title>[a-zA-Z\. ]{0,20})[Ss]\d{1,2}[Ee]\d{1,2}/gm,
+}
+
+const DEFAULT_PATHS = {
+	INPUT : '_input', 
+	OUTPUT : '_output',
+	PATTERNS_FILE :'_patterns.txt',
+}
+
+const DEFAULT_TV_SHOWS_PATTERNS = (root_path, title, season, episode, tmdbID, year, extension) => {
+	
+	const file_name = `${title} (${year}) {tmdb-${tmdbID}} - s${season}e${episode}.${extension}`
+
+	const folders = {
+		root_folder : `${root_path}/${title}/`,
+		season_folder : `${root_path}/${title}/Season ${season}/`,
+	}
+
+	const full_path = folders.season_folder + file_name
+
+	return {...folders, file_name, full_path}
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-const zeroPad = (num, places = 2) => String(num).padStart(places, '0')
-
-/*
-const extension = ( arrayOfPaths ) => {
-
-	const extension = []
-
-	arrayOfPaths.forEach(file => {
-		var ext = file.split(".")
-		if(ext.length === 2){
-			ext = ext.at(-1)
-			if(!extension.includes(ext)){
-				extension.push(ext)
-			}
-		}
-	})
-
-	return extension
-}
-*/
-
-const getfileNameData = ( path ) => {
-
-	try {
-
-		//CHECK IF IT IS A FILE PATH AND NOT A FOLDER ONE
-		if( path.split(".").length === 2){
-
-			const [name, ref, langArray] = path.split("/").at(-1).split(".")[0].split("_")
-			const season = parseInt( ref.slice(1,3) )
-			const episode = parseInt( ref.slice(4) )
-			const root = path.split("/").slice(0,-1).join("/")
-			const ext = path.split(".").at(-1)
-			return {root, name, season, episode, ext}
-		}
-
-		return null
-
-	} catch {
-
-		console.log("> ERROR ON : ", path)
-		return null 
-
-	}
-}
-
 function getfiles ( root = "./" ) {
 	
-	const files = sync(root + '/**/*')
+	const files = glob.sync(root + '/**/*')
 
 	return files
 
@@ -80,9 +59,52 @@ function getfiles ( root = "./" ) {
 
 function getFolders ( root = "./" ) {
 	
-	const files = sync(root + '/**/*')
+	const files = glob.sync(root + '/**/*')
 
 	return files.filter(element => element.split(".").length === 1)
+
+}
+
+const getDataFromRegex = (regex, text) => {
+
+	const regData = regex.exec( text )
+	regex.exec("")//TO PREVENT PROBLEM
+
+	if(!regData){
+		console.log("> Regex ", regex, " not found in ", text)
+		return null
+	}
+
+	return regData.groups
+
+}
+
+/**
+ * Description
+ *
+ * @param   folder  The folder where the files are stored before being renamed and moved .
+ * @returns A json with of path dans patterns or title names.
+ */
+const getTvShowPattensAndPath = ( folder = DEFAULT_PATHS.INPUT, title_tv_show_regex = DEFAULT_TV_SHOW_REGEX.TITLE ) => {
+	
+	const files = getfiles(folder) 
+	
+	return files.map(path => {
+
+		const file_name = path.split("/").at(-1)
+		const {title} = getDataFromRegex(title_tv_show_regex, file_name)
+		
+		return {
+			path, 
+			title_pattern : title
+		}
+	})
+
+}
+
+function textFileToArray( txt_file = DEFAULT_PATHS.PATTERNS_FILE){
+
+	return fs.readFileSync(txt_file).toString().split("\n")
 
 }
 
@@ -106,259 +128,102 @@ async function getDataFromTMDB ( seach_title, type = "tv" ) {
 
 }
 
-const path = ( title, season, episode, tmdbData ) => {
+async function getTMDBdataFromListOfTitles( list_of_titles ){
 
-	const rootFolder = `${title} (${tmdbData.date})`
-	const seasonFolder = `Season ${zeroPad(season)}`
-	const fileName = `${title} (${tmdbData.date}) {tmdb-${tmdbData.id}} - s${zeroPad(season)}e${zeroPad(episode)}`
-	const filePath = `${rootFolder}/${seasonFolder}/${fileName}`
+	const output = []
 
-	return {rootFolder, seasonFolder, fileName, filePath}
+	for(const element of list_of_titles){
 
-}
+		//Get data from The Movie DataBase
+		const {title, date, id} = await getDataFromTMDB(
+			element
+			.replace(/\./g," ")
+			.toLowerCase()
+		)
 
-async function setPlexPathFromFolder( _root = "./"){
-
-	//SCAN FOLDER
-	var files = getfiles(_root)
-	console.log("> FILES : ",files)
-
-	//SET PATH
-	for(const file of files){
-
-		const fileNameData = getfileNameData(file)
-
-		if(!!fileNameData){
-			const {root, name, season, episode, ext} = fileNameData
-			const data = await getDataFromTMDB(name)//NOT OPTIZED TO CALL ON EVERY FILE, BETTER ONCE BY FOLDER
-			const _path = path(name, season, episode, data)
-			console.log("> path : ", _path)
-
-			//CHANGE FILE PATH 
-			const newPath = `${root}/${_path.fileName}.${ext}`
-			console.log(newPath)
-			rename(file, newPath, () => {console.log(newPath, " renamed")})
-		}
-	}
-}
-
-async function setPlexTVShowsFolder( _root = "./" ){
-
-	//SCAN FOLDER 
-	const folders = getFolders(_root)
-
-	//LOOP ON FOLDERS
-	for(const folder of folders){
-
-		//GET DATA FROM FOLDER
-		var [none, title, season] = folder.split(_root)[1].split("/")
-		season = season?.slice(-2) || undefined
-
-		//GET DATA FORM TMDB
-		if(title.indexOf("{tmdb") !== -1 ){
-			continue
-		}
-		const {date, id} = await getDataFromTMDB(title)
-		const fileFolder = `${title} (${date}) {tmdb-${id}}`
-		var newPath = `${_root}/${fileFolder}`
-		var oldPath = folder
-		if(season) {
-			await sleep(1000)
-			const seasonFolder = `Season ${zeroPad(season)}`
-			newPath += `/${seasonFolder}`
-			oldPath = `${_root}/${fileFolder}/${folder.split("/").at(-1)}`
-		}
-		console.log("> FOLDER : ", {oldPath, newPath})
-		rename(oldPath, newPath, () => {console.log(newPath, " renamed")})
-	}
-}
-
-async function setPlexMoviesFiles ( _root = "./"){
-
-	//SCAN FOLDER
-	const files = getfiles(_root)
-
-	//SET PATH
-	for(const file of files){
-
-		//NEXT IF FILE ALREADY GOOD FORMAT
-		if(file.indexOf("{tmdb") !== -1 ){
-			continue
-		}
-
-		//GET DATA FORM FILE NAME
-		const fileName = file.split("/").at(-1)
-		const [name,ext] = fileName.split(".")
-
-		//GET DATA FROM TMDB
-		const {title, date, id} = await getDataFromTMDB(name, type = "movie")
-		console.log({file, name, title, date, id})
-
-		//ON ERROR
+		//If nothing found, next 
 		if(!title){
-			console.log("> ERROR ON : ", file)
 			continue
 		}
 
-		//RENAME 
-		const newFileName = `${title.replace(":","-")} (${date}) {tmdb-${id}}`
-		const newPath = `${_root}/${newFileName}.${ext}`
-
-		console.log( {oldPath : file, newPath} )
-		rename(file, newPath, () => {console.log(newPath, " renamed")})
+		//Append data to the output array
+		output.push({pattern : element, title, year:date, id,})
 
 	}
 
+	return output
+
 }
 
-async function setPlexMoviesFolders ( _root = "./"){
+function createFolders( path ){ //folder1/folder2/.../folderN
 
-	//SCAN FOLDER
-	const files = getfiles(_root)
+	const folders = path.split("/")
 
-	console.log(files)
+	var previousFolder = folders[0]
 
-	for(const file of files){
+	for( var i = 1; i <= folders.length  ; i++){
 
-		const fileName = file.split("/").at(-1)
-		const folderRoot = `${_root}/${fileName.split(".")[0]}`
-	
-		if (!existsSync(folderRoot)){
-		    mkdirSync(folderRoot);
-
-		} else {
-			const oldPath = file
-			const newPath = `${folderRoot}/${fileName}`
-			console.log({oldPath, newPath})
-			// fs.renameSync( oldPath , newPath )
+		if (!fs.existsSync(previousFolder)){
+			fs.mkdirSync(previousFolder);
 		}
-	}
-}
 
-const SET_CONFIG = async( config, _input = "./input" ) => {
+		previousFolder = `${previousFolder}/${folders[i]}`
 
-	for(const video of config){
-
-//		if( config.title + config.year + config.id > 0) break
-
-		const {title, date, id} = await getDataFromTMDB(video.substring.replace(/\./g," "))
-		video.title = title
-		video.year = date
-		video.id = id
 	}
 
 }
 
-async function setNameFromFolder ( config, _input = "./_input", _output = "./_output" ){ //config = {substring : , title :, date :, id :}
+async function setToPlexTVshowOrganization ( 
+	input = DEFAULT_PATHS.INPUT, 
+	output = DEFAULT_PATHS.OUTPUT,  
+	regex = DEFAULT_TV_SHOW_REGEX.SEASON_AND_EPISODE, 
+	files_pattern = DEFAULT_PATHS.PATTERNS_FILE  ){
 
-	//INIT
-	const files = getfiles(_input)
-	const regex = /[Ss](?<season>\d{1,2})[Ee](?<episode>\d{1,2})/gm;
+	//Get data from The Movie DB for all pattern files listed in _patterns.txt
+	const files_path = getfiles(input)
+	const TMDBdata = await getTMDBdataFromListOfTitles( textFileToArray( files_pattern ) )
 
-	console.log(files, "\n")
+	//Loop on all files in _input add apply modification given the TMDB data
+	for(const path of files_path){
 
-	//LOOP
+		try {
 
-	for(const file of files){
+			//Get file name  given a path
+			const file_name = path.split("/").at(-1)
 
-		const fileName = file.split("/").at(-1)
-
-		for( const data of config ){
-
-			if(fileName.indexOf(data.substring) !== -1){
-
-				console.log(fileName, data)
-
-				//SET FILE NAME
-				const regData = regex.exec(fileName)
-				regex.exec("")//TO PREVENT PROBLEM
-				const ext = fileName.split(".").at(-1)
-				if(!regData){
-					console.log("> error on : ", file)
-					break
-				}
-				const {episode, season} = regData.groups
-				const newName = `${data.title.replace(':','-')} (${data.year}) {tmdb-${data.id}}`
-				const oldPath = file
-				const newPath = `${_output}/${newName}/Season ${season}/${newName} - s${season}e${episode}.${ext}`
-
-				//CREATE FOLDERS				
-				if (!existsSync(`${_output}/${newName}`)){
-					mkdirSync(`${_output}/${newName}`);
-				}				
-				if (!existsSync(`${_output}/${newName}/Season ${season}/`)){
-					mkdirSync(`${_output}/${newName}/Season ${season}/`);
-				}
-
-				//RENAME
-				rename(file, newPath,  (err) => {
-					if (err) throw err;
-					console.log(file, ' : Rename complete!');
-				})
-				break
-
+			//Filer on the TMDB collected data, if null go next path
+			const data = TMDBdata.filter( element => file_name.indexOf(element.pattern) !== -1)[0]
+			if(!data){
+				continue
 			}
 
-		}
+			//Get file extention 
+			const ext = file_name.split(".").at(-1)
 
+			//Renaming file
+			const {episode, season} = getDataFromRegex(regex, file_name)
+
+			const file_tree = DEFAULT_TV_SHOWS_PATTERNS(output, data.title.replace(':','-'), season, episode, data.id, data.year, ext)
+
+			//Create new folder if existing				
+			createFolders(file_tree.season_folder)
+
+			//Renaming files
+			fs.rename(path, file_tree.full_path,  (err) => {
+				if (err) throw err;
+				console.log(path, ' : Rename complete!');
+			})
+
+		}catch(error){
+			console.log(error)
+		}
 	}
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //MAIN
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-async function main () {
-
-	// const files = setPlexTVShowsFolder("Z:/@MULTIMEDIA/SERIES/THRILLER")
-	// setPlexMoviesFiles("./_input")
-	// setPlexMoviesFolders("./_input")
-	// setPlexMoviesFolders("Z:/@MULTIMEDIA/FILMS")
-
-	const config = [
-/*		{
-			substring : "Oscuro Deseo",
-			title : "Oscuro Deseo", 
-			id : "105214", 
-			year : "2020"
-		},*/
-		// { substring : "House.of.the.Dragon"},
-		// { substring : "House of the Dragon"},
-		// { substring : "house.of.the.dragon"},
-		// { substring : "stranger.things"},
-		// { substring : "westworld"},
-		// { substring : "Westworld"},
-		// { substring : "The.Sandman"},
-		// { substring : "Locke.and.Key"},
-		// { substring : "Black.Bird"},
-		// { substring : "The.Lord.of.the.Rings.The.Rings.of.Power"},
-		// { substring : "american.horror.story"},
-		// { substring : "Andor"},
-		// { substring : "andor"},
-		// { substring : "Elite"},
-		// { substring : "The.Crown"},
-		// { substring : "1899"},
-		// { substring : "The.Peripheral"},
-		// { substring : "Wednesday"},
-		// { substring : "Dark"},
-		// { substring : "Lady.Voyeur"},
-		// { substring : "The.Order"},
-		// { substring : "The.Witcher.A.Origem"},
-		// { substring : "Love.Death.And.Robots"},
-		// { substring : "Fate.The.Winx.Saga"},
-		// { substring : "Raised.by.Wolves"},
-		// { substring : "Cidade Invisivel"},
-		//{ substring : "Treason"},
-		// { substring : "Salem"},
-		// { substring : "Motherland.Fort.Salem"},
-		{ substring : "The.White.Lotus"},
-		{ substring : "The.Mandalorian"},
-		{ substring : "Shadow.and.Bone"},
-	]
-
-	await SET_CONFIG(config)
-	setNameFromFolder(config)
-
-}
-
-main()
+console.log( getTvShowPattensAndPath() )
+//setToPlexTVshowOrganization()
