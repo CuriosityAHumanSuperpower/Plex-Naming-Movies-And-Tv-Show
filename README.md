@@ -1,7 +1,7 @@
 # Plex-Naming-Movies-&-Tv-Show
 
 ## Description
-Naming and organizing TV show and movies files for a Plex server as it is discribed on [plex documentation](https://support.plex.tv/articles/naming-and-organizing-your-tv-show-files/).
+Naming and organizing TV show and movies files automatically for a Plex server as it is discribed on [plex documentation](https://support.plex.tv/articles/naming-and-organizing-your-tv-show-files/).
 
 ## How does the script work? 
 0. First a **congif.env** file with the following variables are requiered : **THE_MOVIE_DB_AUTH_TOKEN** and **THE_MOVIE_DB_API_KEY**. More information [The Movie DB API](https://www.themoviedb.org/documentation/api).
