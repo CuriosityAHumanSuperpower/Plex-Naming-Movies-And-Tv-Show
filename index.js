@@ -20,7 +20,9 @@ dotenv.config({path : './config.env'})
 //CONST
 const DEFAULT_TV_SHOW_REGEX = {
 	SEASON_AND_EPISODE : /[Ss](?<season>\d{1,2})[Ee](?<episode>\d{1,2})/gm,
-	TITLE : /(?<title>[a-zA-Z\. ]{0,20})[Ss]\d{1,2}[Ee]\d{1,2}/gm,
+	TV_SHOW_TITLE : /(?<title>[a-zA-Z\. ]{0,20})[Ss]\d{1,2}[Ee]\d{1,2}/gm,
+	TV_SHOW : /^(?<title>[a-zA-Z0-9\.\- ]*)[Ss](?<season>\d{1,2})[Ee](?<episode>\d{1,2})/gm,
+	MOVIE : /^(?<title>[a-zA-Z0-9\.\- ]*)[( .][0-9]{4}[) .]/gm, 
 }
 
 const DEFAULT_PATHS = {
@@ -33,20 +35,43 @@ const DEFAULT_TV_SHOWS_PATTERNS = (root_path, title, season, episode, tmdbID, ye
 	
 	const file_name = `${title} (${year}) {tmdb-${tmdbID}} - s${season}e${episode}.${extension}`
 
-	const folders = {
-		root_folder : `${root_path}/${title}/`,
-		season_folder : `${root_path}/${title}/Season ${season}/`,
-	}
+	const folders = `${root_path}/${title}/Season ${season}/`
 
 	const full_path = folders.season_folder + file_name
 
-	return {...folders, file_name, full_path}
+	return {folders, file_name, full_path}
 }
+
+const DEFAULT_OUTPUT_PATH  = (root_path, {title, season, episode, id, year, ext} = video_info , isTvShow = true) => {
+
+	if(isTvShow){
+
+		var file_name = `${title} (${year}) {tmdb-${id}} - s${season}e${episode}.${ext}`
+
+		var folders = `${root_path}/${title}/Season ${season}/`
+
+	} else {
+
+		var file_name = `${title} (${year}) {tmdb-${id}}.${ext}`
+
+		var folders = `${root_path}/${title} (${year})/`
+
+	}
+
+	const full_path = folders + file_name
+
+	return {folders, file_name, full_path}
+
+}
+
+const zeroPad = (num, places = 2) => String(num).padStart(places, '0')
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //FUNCTIONS
 ////////////////////////////////////////////////////////////////////////////////////////////
 
+//OPERATING ON FILES
+////////////////////////////////////////////////////////////////////////////////////////////
 function getfiles ( root = "./" ) {
 	
 	const files = glob.sync(root + '/**/*')
@@ -62,6 +87,33 @@ function getFolders ( root = "./" ) {
 	return files.filter(element => element.split(".").length === 1)
 
 }
+
+function textFileToArray( txt_file = DEFAULT_PATHS.PATTERNS_FILE){
+
+	return fs.readFileSync(txt_file).toString().split("\n")
+
+}
+
+function createFolders( path ){ //folder1/folder2/.../folderN
+
+	const folders = path.split("/")
+
+	var previousFolder = folders[0]
+
+	for( var i = 1; i <= folders.length  ; i++){
+
+		if (!fs.existsSync(previousFolder)){
+			fs.mkdirSync(previousFolder);
+		}
+
+		previousFolder = `${previousFolder}/${folders[i]}`
+
+	}
+
+}
+
+//GETTING DATA
+////////////////////////////////////////////////////////////////////////////////////////////
 
 const getDataFromRegex = (regex, text) => {
 
@@ -83,7 +135,7 @@ const getDataFromRegex = (regex, text) => {
  * @param   folder  The folder where the files are stored before being renamed and moved .
  * @returns A json with of path dans patterns or title names.
  */
-const getTvShowPattensAndPath = ( folder = DEFAULT_PATHS.INPUT, title_tv_show_regex = DEFAULT_TV_SHOW_REGEX.TITLE ) => {
+const getTvShowPattensAndPath = ( folder = DEFAULT_PATHS.INPUT, title_tv_show_regex = DEFAULT_TV_SHOW_REGEX.TV_SHOW_TITLE ) => {
 	
 	const files = getfiles(folder) 
 	
@@ -100,11 +152,6 @@ const getTvShowPattensAndPath = ( folder = DEFAULT_PATHS.INPUT, title_tv_show_re
 
 }
 
-function textFileToArray( txt_file = DEFAULT_PATHS.PATTERNS_FILE){
-
-	return fs.readFileSync(txt_file).toString().split("\n")
-
-}
 
 async function getDataFromTMDB ( seach_title, type = "tv" ) {
 
@@ -153,23 +200,111 @@ async function getTMDBdataFromListOfTitles( list_of_titles ){
 
 }
 
-function createFolders( path ){ //folder1/folder2/.../folderN
+//RENAMING AND ORGANIZING FOR PLEX SERVER
+////////////////////////////////////////////////////////////////////////////////////////////
 
-	const folders = path.split("/")
+//OPTION 1 : 100% FROM REGEXS 
+//------------------------------------------------------------------------------------------
 
-	var previousFolder = folders[0]
+async function dataPreparation (
+	input = DEFAULT_PATHS.INPUT,
+	output = DEFAULT_PATHS.OUTPUT,
+	regexs = DEFAULT_TV_SHOW_REGEX,){
 
-	for( var i = 1; i <= folders.length  ; i++){
+	//Get all files path 
+	const files_path = getfiles(input)
 
-		if (!fs.existsSync(previousFolder)){
-			fs.mkdirSync(previousFolder);
+	//Map on files_path the regexs
+	const videos_info = files_path.map( path => {
+
+		//Getting file name
+		const file_name = path.split("/").at(-1)
+
+		//Get file extension
+		const ext = file_name.split(".").at(-1)
+
+		//Extract data from file name with regex
+		const movie_data = getDataFromRegex(regexs.MOVIE, file_name)
+		const tv_show_data = getDataFromRegex(regexs.TV_SHOW, file_name)
+
+		//Formatting the output
+		const infos = {
+			original_path : path, 
+			title : movie_data?.title || tv_show_data?.title || null,
+			episode : tv_show_data?.episode || null,
+			season : tv_show_data?.season || null,
+			ext,
 		}
 
-		previousFolder = `${previousFolder}/${folders[i]}`
+		//Cleaning title 
+		infos.title = infos?.title?.replace(/\./g," ").toLowerCase()
+
+		return infos
+	})
+
+	//Adding The MovieDB data
+	for( const video_info of videos_info){
+
+		const {date, id, title} = await getDataFromTMDB ( 
+			seach_title = video_info.title, 
+			type = video_info.season === null ? "movie" : "tv"
+		)
+
+		//If nothing found, next 
+		if(!title){
+			video_info.original_path = null
+			console.log("> Video not found on The Movie DB :", seach_title)
+			continue
+		}
+
+		video_info['year'] = date
+		video_info['id'] = id
+		video_info['title'] = title.replace(':','-')
+	}
+
+	//Setting output paths 
+	videos_info.forEach(video_info => {
+
+		//Apply renaming given that the file is a Tv Show or a Movie
+		video_info.output = DEFAULT_OUTPUT_PATH(output, video_info, !!video_info.season) 
+		
+	})
+
+	return videos_info
+
+}
+
+function setNewPath(videos_info) {
+
+	for( const video_info of videos_info) {
+
+		try { 
+
+			if( !video_info.original_path ){
+				continue
+			}
+
+			//Adding folders if necessary
+			createFolders(video_info.output.folders)
+
+			//Renaming files
+			fs.rename(video_info.original_path, video_info.output.full_path,  (err) => {
+				if (err) throw err;
+				console.log(video_info.original_path, ' : Rename complete!');
+			})
+
+		} catch(e) {
+			console.log( e )
+		}
 
 	}
 
 }
+
+//OPTION 2 : FROM A _patterns.txt FILE MANUALLY UPDATED (obsolete)
+//------------------------------------------------------------------------------------------
+
+/*
 
 async function setToPlexTVshowOrganization ( 
 	input = DEFAULT_PATHS.INPUT, 
@@ -204,7 +339,7 @@ async function setToPlexTVshowOrganization (
 			const file_tree = DEFAULT_TV_SHOWS_PATTERNS(output, data.title.replace(':','-'), season, episode, data.id, data.year, ext)
 
 			//Create new folder if existing				
-			createFolders(file_tree.season_folder)
+			createFolders(file_tree.folders)
 
 			//Renaming files
 			fs.rename(path, file_tree.full_path,  (err) => {
@@ -218,9 +353,19 @@ async function setToPlexTVshowOrganization (
 	}
 }
 
+*/
+
 ////////////////////////////////////////////////////////////////////////////////////////////
 //MAIN
 ////////////////////////////////////////////////////////////////////////////////////////////
 
-//console.log( getTvShowPattensAndPath() )
-setToPlexTVshowOrganization()
+const main = async() => {
+
+	const videos_info = await dataPreparation()
+	console.log(videos_info)
+	setNewPath(videos_info)
+
+}
+
+main()
+
