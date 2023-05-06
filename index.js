@@ -48,7 +48,7 @@ const DEFAULT_OUTPUT_PATH  = (root_path, {title, season, episode, id, year, ext}
 
 		var file_name = `${title} (${year}) {tmdb-${id}} - s${season}e${episode}.${ext}`
 
-		var folders = `${root_path}/${title}/Season ${season}/`
+		var folders = `${root_path}/${title} (${year}) {tmdb-${id}}/Season ${season}/`
 
 	} else {
 
