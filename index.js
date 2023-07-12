@@ -18,6 +18,18 @@ const dotenv = require('dotenv');
 dotenv.config({path : './config.env'})
 
 //CONST
+
+const VIDEO_EXT = [
+	".mp4",
+	".m4v",
+	".mov",
+	".avi",
+	".mpeg",
+	".mkv",
+	".mpg" ,
+	".wmv"
+]
+
 const DEFAULT_TV_SHOW_REGEX = {
 	SEASON_AND_EPISODE : /[Ss](?<season>\d{1,2})[Ee](?<episode>\d{1,2})/gm,
 	TV_SHOW_TITLE : /(?<title>[a-zA-Z\. ]{0,20})[Ss]\d{1,2}[Ee]\d{1,2}/gm,
@@ -72,9 +84,9 @@ const zeroPad = (num, places = 2) => String(num).padStart(places, '0')
 
 //OPERATING ON FILES
 ////////////////////////////////////////////////////////////////////////////////////////////
-function getfiles ( root = "./" ) {
+function getfiles ( root = "./", pattern = `/**/*{${VIDEO_EXT.join(',')}}` ) {
 	
-	const files = glob.sync(root + '/**/*')
+	const files = glob.sync(root + pattern)
 
 	return files
 
