@@ -27,7 +27,9 @@ const VIDEO_EXT = [
 	".mpeg",
 	".mkv",
 	".mpg" ,
-	".wmv"
+	".wmv",
+	".ogm",
+	".srt"
 ]
 
 const DEFAULT_TV_SHOW_REGEX = {
@@ -271,7 +273,7 @@ async function dataPreparation (
 
 		video_info['year'] = date
 		video_info['id'] = id
-		video_info['title'] = title.replace(':','-')
+		video_info['title'] = title.replace(':','-').replace('?','')
 	}
 
 	//Setting output paths 
