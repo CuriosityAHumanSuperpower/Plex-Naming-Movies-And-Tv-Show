@@ -41,7 +41,7 @@ const DEFAULT_TV_SHOW_REGEX = {
 
 const DEFAULT_PATHS = {
 	INPUT : '_input', 
-	OUTPUT : '_output',
+	OUTPUT : '_output', //'\\\\MYCLOUD-HE1NBD\\alex\\@MULTIMEDIA\\SERIES_plex',
 	PATTERNS_FILE :'_patterns.txt',
 }
 
@@ -123,6 +123,16 @@ function createFolders( path ){ //folder1/folder2/.../folderN
 		previousFolder = `${previousFolder}/${folders[i]}`
 
 	}
+
+}
+
+function removeEmptyFolders(root_path){
+
+	const files = glob.sync(`${root_path}/**/*`, { nodir: true })
+
+	if (files.length === 0) fs.rmdirSync(root_path, { recursive: true })
+
+	fs.mkdirSync(root_path)
 
 }
 
@@ -214,6 +224,8 @@ async function getTMDBdataFromListOfTitles( list_of_titles ){
 
 }
 
+
+
 //RENAMING AND ORGANIZING FOR PLEX SERVER
 ////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -299,7 +311,8 @@ function setNewPath(videos_info) {
 			}
 
 			//Adding folders if necessary
-			createFolders(video_info.output.folders)
+			//createFolders(video_info.output.folders)
+			fs.mkdirSync(video_info.output.folders, { recursive: true });
 
 			//Renaming files
 			fs.rename(video_info.original_path, video_info.output.full_path,  (err) => {
@@ -378,8 +391,8 @@ const main = async() => {
 	const videos_info = await dataPreparation()
 	console.log(videos_info)
 	setNewPath(videos_info)
+	removeEmptyFolders(DEFAULT_PATHS.INPUT)
 
 }
 
 main()
-
