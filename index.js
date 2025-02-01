@@ -395,4 +395,24 @@ const main = async() => {
 
 }
 
+
+// const { exec } = require('child_process');
+
+// // Define the command you want to run
+// const command = 'xcopy "D:\\APPRENTISSAGE\\PROGRAMMATION\\Plex-Naming-Movies-And-Tv-Show\\_output" "\\\\MYCLOUD-HE1NBD\\alex\\@MULTIMEDIA\\SERIES_plex" /i /z /s /compress /-y /f /v';
+
+// // Execute the command
+// exec(command, (error, stdout, stderr) => {
+//   if (error) {
+//     console.error(`Error executing command: ${error}`);
+//     return;
+//   }
+//   if (stderr) {
+//     console.error(`stderr: ${stderr}`);
+//     return;
+//   }
+//   console.log(`stdout: ${stdout}`);
+// });
+
+
 main()
