@@ -40,9 +40,9 @@ const DEFAULT_TV_SHOW_REGEX = {
 }
 
 const DEFAULT_PATHS = {
-	INPUT : '_input', 
-	OUTPUT : '_output', //'\\\\MYCLOUD-HE1NBD\\alex\\@MULTIMEDIA\\SERIES_plex',
-	PATTERNS_FILE :'_patterns.txt',
+	INPUT: path.join(__dirname, '_input'),
+	OUTPUT: path.join(__dirname, '_output'),
+	PATTERNS_FILE: path.join(__dirname, '_patterns.txt'),
 }
 
 const DEFAULT_TV_SHOWS_PATTERNS = (root_path, title, season, episode, tmdbID, year, extension) => {
