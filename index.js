@@ -7,11 +7,13 @@ PLEX.TV MOVIES & TV SHOW FORMAT
 //IMPORTS & CONST
 ////////////////////////////////////////////////////////////////////////////////////////////
 
+
 //IMPORTS
 const themoviedb = require("./middlewares/themoviedb")
 const sleep = require("./middlewares/sleep")
 const fs = require('fs')
 const glob = require("glob")
+const path = require('path');
 
 //DOTENV
 const dotenv = require('dotenv');
