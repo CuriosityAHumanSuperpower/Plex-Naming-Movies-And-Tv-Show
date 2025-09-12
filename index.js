@@ -124,7 +124,7 @@ function removeEmptyFolders(root_path){
 
 	const files = glob.sync(`${root_path}/**/*`, { nodir: true })
 
-	if (files.length === 0) fs.rmdirSync(root_path, { recursive: true })
+	if (files.length === 0 && fs.existsSync(path)) fs.rmSync(root_path, { recursive: true, force: true });
 
 	fs.mkdirSync(root_path)
 
