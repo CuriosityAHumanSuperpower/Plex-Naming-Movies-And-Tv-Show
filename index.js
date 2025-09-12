@@ -17,7 +17,7 @@ const path = require('path');
 
 //DOTENV
 const dotenv = require('dotenv');
-dotenv.config({path : './config.env'})
+dotenv.config({ path: path.join(__dirname, 'config.env') })
 
 //CONST
 
@@ -122,14 +122,15 @@ function createFolders( path ){ //folder1/folder2/.../folderN
 
 }
 
+
 function removeEmptyFolders(root_path){
-
-	const files = glob.sync(`${root_path}/**/*`, { nodir: true })
-
-	if (files.length === 0 && fs.existsSync(path)) fs.rmSync(root_path, { recursive: true, force: true });
-
-	fs.mkdirSync(root_path)
-
+	const files = glob.sync(`${root_path}/**/*`, { nodir: true });
+	if (files.length === 0 && fs.existsSync(root_path)) {
+		fs.rmSync(root_path, { recursive: true, force: true });
+	}
+	if (!fs.existsSync(root_path)) {
+		fs.mkdirSync(root_path, { recursive: true });
+	}
 }
 
 //GETTING DATA
