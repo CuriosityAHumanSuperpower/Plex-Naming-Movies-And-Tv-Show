@@ -60,7 +60,7 @@ const DEFAULT_TV_SHOWS_PATTERNS = (root_path, title, season, episode, tmdbID, ye
 
 const DEFAULT_OUTPUT_PATH  = (root_path, {title, season, episode, id, year, ext} = video_info , isTvShow = true) => {
 
-	let subfolder = isTvShow ? '_TV Show' : '_Movies';
+	let subfolder = isTvShow ? '_TV Shows' : '_Movies';
 
 	if(isTvShow){
 		var file_name = `${title} (${year}) {tmdb-${id}} - s${season}e${episode}.${ext}`
